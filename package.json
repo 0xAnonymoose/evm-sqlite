@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.118.1",
     "sqlite": "^4.1.1",
     "sqlite3": "^5.0.8",
     "web3": "^1.7.4"

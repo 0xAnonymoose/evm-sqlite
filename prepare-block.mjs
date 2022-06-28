@@ -1,15 +1,16 @@
-import { _loadCache, _saveCache, web3, lcStrings, hexToBlob } from './utils.mjs';
+import { web3, lcStrings, hexToBlob } from './utils.mjs';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
+import { _loadCache } from './cache-s3.mjs';
 
-function prepareBlock(blockNumber) { 
+async function prepareBlock(blockNumber) { 
   let cname = 'cache/block_'+blockNumber+'.json';
-  let cache = _loadCache(cname);
+  let cache = await _loadCache(cname);
   if (cache == null) {
     console.log('not found in cache', blockNumber);
     return;
   }
-  
+
   let block = {};
   const excludes = [ 'transactions', 'uncles', 'nonce', '_transactions_receipts', 'miner', 'mixHash', 'parentHash', 'sha3Uncles', 'receiptsRoot', 'stateRoot', 'transactionsRoot' ];
   const blob = ['extraData','hash','logsBloom'];
@@ -89,7 +90,7 @@ const db = await open({
   let last = parseInt(process.argv[3]) || first+1;
   for (let i=first; i<last; i++) {
     console.log(i);
-    let {block, transactions, logs} = prepareBlock(i);
+    let {block, transactions, logs} = await prepareBlock(i);
     await db.exec('BEGIN TRANSACTION;');
     for (let t of transactions) {
       await stmt.run([ t.blockNumber, t.hash, t.from, t.to, t.input, t.value, t.gas, t.gasPrice, t.gasUsed, t.nonce, t.transactionIndex, t.status ]);

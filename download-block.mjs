@@ -1,4 +1,5 @@
-import { _loadCache, _saveCache, web3, lcStrings } from './utils.mjs';
+import { web3, lcStrings } from './utils.mjs';
+import { _checkCache, _saveCache } from './cache-s3.mjs';
 
 function prepareTransaction(txn, receipt) {
 
@@ -19,8 +20,7 @@ function prepareTransaction(txn, receipt) {
 
 async function downloadBlock(blockNumber) { 
   let cname = 'cache/block_'+blockNumber+'.json';
-  let cache = _loadCache(cname);
-  if (cache != null) { return cache; }
+  if (await _checkCache(cname)) { return; }
   
   let start_ts = Date.now();  
   let b = await web3.eth.getBlock( blockNumber );
@@ -40,7 +40,7 @@ async function downloadBlock(blockNumber) {
 
   let end_ts = Date.now();
   console.log(blockNumber,' ', b.transactions.length,'txn',end_ts-start_ts,'sec');
-  _saveCache(cname, b);
+  await _saveCache(cname, b);
   
   return b;
 }
