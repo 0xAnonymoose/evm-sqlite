@@ -1,5 +1,6 @@
 import { web3, lcStrings } from './utils.mjs';
-import { _checkCache, _saveCache } from './cache-s3.mjs';
+import { _checkCache, _saveCache } from './cache-fs.mjs';
+import { setTimeout } from 'timers/promises';
 
 function prepareTransaction(txn, receipt) {
 
@@ -18,24 +19,31 @@ function prepareTransaction(txn, receipt) {
   return tcopy;
 }
 
+const THROTTLE = 400;
+
 async function downloadBlock(blockNumber) { 
   let cname = 'cache/block_'+blockNumber+'.json';
   if (await _checkCache(cname)) { return; }
   
   let start_ts = Date.now();  
-  let b = await web3.eth.getBlock( blockNumber );
+  let b;
   
-  b._transactions_receipts = {};
+  try { 
+    b = await web3.eth.getBlock( blockNumber );
+    b._transactions_receipts = {};
 
-  for(let t of b.transactions) {
-    console.log(t);
-    try {
-      let txn = await web3.eth.getTransaction( t );
+    for(let t of b.transactions) {
+      console.log(t);
+
+      let txn = await web3.getBigGasLimitTransaction( t );
       let rcpt = await web3.eth.getTransactionReceipt( t  );
       b._transactions_receipts[t] = prepareTransaction(txn, rcpt);
-    } catch(e) {
-      console.error(e);
+      
+      await setTimeout(THROTTLE);
     }
+  } catch(e) {
+    console.error(blockNumber,'failed', e);
+    return null;
   }
 
   let end_ts = Date.now();
@@ -45,8 +53,15 @@ async function downloadBlock(blockNumber) {
   return b;
 }
 
+const MAX_TRIES = 10;
+const RETRY_DELAY = 60*1000;
+
 let first = parseInt(process.argv[2]);
 let last = parseInt(process.argv[3]) || first+1;
 for (let i=first; i<last; i++) {
-  await downloadBlock(i);
+  for (let tries=0; tries<MAX_TRIES; tries++) {
+    let b = await downloadBlock(i);
+    if (b != null) { break; }
+    await setTimeout(RETRY_DELAY);
+  }
 }

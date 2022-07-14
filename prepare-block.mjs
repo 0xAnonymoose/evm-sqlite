@@ -1,7 +1,7 @@
 import { web3, lcStrings, hexToBlob } from './utils.mjs';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
-import { _loadCache } from './cache-s3.mjs';
+import { _loadCache } from './cache-fs.mjs';
 
 async function prepareBlock(blockNumber) { 
   let cname = 'cache/block_'+blockNumber+'.json';
