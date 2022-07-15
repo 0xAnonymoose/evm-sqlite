@@ -1,5 +1,5 @@
 import { web3, lcStrings } from './utils.mjs';
-import { _checkCache, _saveCache } from './cache-fs.mjs';
+import { _checkCache, _saveCache, _loadCache } from './cache-fs.mjs';
 import { setTimeout } from 'timers/promises';
 
 function prepareTransaction(txn, receipt) {
@@ -23,28 +23,51 @@ const THROTTLE = parseInt(process.env.THROTTLE || 400);
 
 async function downloadBlock(blockNumber) { 
   let cname = 'cache/block_'+blockNumber+'.json';
-  if (await _checkCache(cname)) { return; }
+  if (await _checkCache(cname)) { return await _loadCache(cname); }
   
   let start_ts = Date.now();  
   let b;
-  
+
+  // get block header  
+  console.log('block', blockNumber);
   try { 
     b = await web3.eth.getBlock( blockNumber );
     b._transactions_receipts = {};
-
-    for(let t of b.transactions) {
-      console.log(t);
-
-      let txn = await web3.getBigGasLimitTransaction( t );
-      let rcpt = await web3.eth.getTransactionReceipt( t  );
-      b._transactions_receipts[t] = prepareTransaction(txn, rcpt);
-      
-      await setTimeout(THROTTLE);
-    }
   } catch(e) {
     console.error(blockNumber,'failed', e);
     return null;
   }
+
+  // get transactions and receipts
+  const TXN_TRIES = 3;
+  for(let t of b.transactions) {
+  
+      // try a few times.
+      let ok = false;
+      for (let j=0; j<TXN_TRIES && !ok; j++) {
+        console.log(t, j);
+        
+        try {
+          let txn = await web3.getBigGasLimitTransaction( t );
+          let rcpt = await web3.eth.getTransactionReceipt( t  );
+          b._transactions_receipts[t] = prepareTransaction(txn, rcpt);
+          
+          await setTimeout(THROTTLE);
+          ok=true;
+        } catch(e) {
+          console.error(t, 'failed', e);
+        }
+         
+        await setTimeout( ok ? THROTTLE : 5000);
+      }
+      
+      if (!ok) {
+        // catastrophic error, bail out
+        return null;
+      }
+      
+    }
+
 
   let end_ts = Date.now();
   console.log(blockNumber,' ', b.transactions.length,'txn',end_ts-start_ts,'sec');
