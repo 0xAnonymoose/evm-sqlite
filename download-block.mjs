@@ -51,8 +51,6 @@ async function downloadBlock(blockNumber) {
           let txn = await web3.getBigGasLimitTransaction( t );
           let rcpt = await web3.eth.getTransactionReceipt( t  );
           b._transactions_receipts[t] = prepareTransaction(txn, rcpt);
-          
-          await setTimeout(THROTTLE);
           ok=true;
         } catch(e) {
           console.error(t, 'failed', e);
