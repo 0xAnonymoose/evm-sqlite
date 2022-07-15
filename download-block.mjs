@@ -19,7 +19,7 @@ function prepareTransaction(txn, receipt) {
   return tcopy;
 }
 
-const THROTTLE = 400;
+const THROTTLE = parseInt(process.env.THROTTLE || 400);
 
 async function downloadBlock(blockNumber) { 
   let cname = 'cache/block_'+blockNumber+'.json';
